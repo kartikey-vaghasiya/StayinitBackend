@@ -39,7 +39,7 @@ async function uploadToCloudinary(file, folder, quality) {
     options.resource_type = "auto"
 
 
-   return cloudinary.uploader.upload(file.tempFilePath, options)
+    return cloudinary.uploader.upload(file.tempFilePath, options)
 }
 
 
@@ -47,7 +47,7 @@ async function uploadToCloudinary(file, folder, quality) {
 const cloudinaryUpload = async (req, res) => {
     // getting file from req
     const file = req.files.imageFile
-    const {name, tags} = req.body
+    const { name, tags } = req.body
 
     // validation
     const typeArray = ['jpeg', 'png', 'jpg']

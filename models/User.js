@@ -4,29 +4,26 @@ const userSchema = new mongoose.Schema({
 
     firstname: {
         type: String,
-        minlength: 2,
-        maxlength: 12,
+        required: true,
     },
 
     lastname: {
         type: String,
-        minlength: 2,
-        maxlength: 12,
+        required: true,
     },
 
     username: {
         type: String,
-        require: true,
-        minlength: 5,
-        maxlength: 10
+        required: true,
+        unique: true,
     },
 
     email: {
         type: String,
-        require: true,
+        required: true,
         unique: true,
         validate: {
-            validator: function (email) { 
+            validator: function (email) {
                 const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
                 return emailRegex.test(email);
             },
@@ -37,15 +34,22 @@ const userSchema = new mongoose.Schema({
 
     password: {
         type: String,
-        require: true,
-        minlength: 8,
+        required: true,
     },
 
     role: {
         type: String,
-        enum: ["user", "admin", "owner"],
-        default: "user"
+        enum: ["User", "Admin", "Owner"],
+        default: "User"
+    },
+
+    phoneNumber: {
+        type: String,
+        unique: true,
     }
+
+
+
 }, { timestamps: true }
 );
 

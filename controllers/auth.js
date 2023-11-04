@@ -5,14 +5,23 @@ const jwt = require("jsonwebtoken")
 async function signup(req, res) {
 
     // Get Data from req.body
-    const { email, password, confirmPassword, firstname, lastname, username } = req.body;
+    const {
+        firstname,
+        lastname,
+        username,
+        email,
+        password,
+        confirmPassword,
+        role,
+        phoneNumber
+    } = req.body;
 
 
     // Step 1: Check if ( Email And Username ) And ( Password and Confirmation Password ) is provided or Not
-    if (!email && !username && !password && !confirmPassword) {
+    if (!email || !username || !((password.length) > 8) || !((confirmPassword.length) > 8)) {
         return res.json({
             "success": false,
-            "message": "Please provide email and password",
+            "message": "Please provide email and password of valid length",
             "data": {}
         });
     }
@@ -42,7 +51,16 @@ async function signup(req, res) {
         // Step 4: If User Not Created Before then ...
         // Hash the password
         hash = await bcrypt.hash(password, 10)
-        const newUser = new User({ email, password: hash, firstname, lastname, username });
+
+        const newUser = new User({
+            firstname,
+            lastname,
+            username,
+            email,
+            "password": hash,
+            role,
+            phoneNumber
+        });
 
         // Create Entry in DB
         await newUser.save();
@@ -55,10 +73,9 @@ async function signup(req, res) {
 
         // If Any Error Accures During This Process Then Give Internal Server Error
     } catch (error) {
-        console.error("Error during signup:", error);
         res.status(500).json({
             "success": false,
-            "message": "Internal Server Error",
+            "message": error,
             "data": {}
         });
     }
@@ -70,7 +87,6 @@ async function login(req, res) {
 
     // Step 1: Check if User Entered ( Username Or Email ) And Password
     if (!usernameOrEmail && !password) {
-        console.log(usernameOrEmail, password)
         return res.json({
             "success": false,
             "message": "Please provide email and password",
@@ -96,7 +112,8 @@ async function login(req, res) {
                 const userData = {
                     id: existingUser._id,
                     email: existingUser.email,
-                    username: existingUser.username
+                    username: existingUser.username,
+                    role: existingUser.role
                 }
 
                 const token = jwt.sign(userData, process.env.JWT_SECRET, { expiresIn: '1h' })
@@ -140,7 +157,21 @@ async function login(req, res) {
     }
 }
 
+async function isAuthenticate(req, res) {
+
+    const data = {
+        "user": req.user.id
+    }
+
+    res.status(200).json({
+        "success": true,
+        "message": "This user is authenticated",
+        "data": data
+    })
+}
+
 module.exports = {
     login,
-    signup
+    signup,
+    isAuthenticate
 }
