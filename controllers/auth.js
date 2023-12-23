@@ -1,6 +1,65 @@
 const User = require("../models/User")
 const bcrypt = require("bcrypt")
 const jwt = require("jsonwebtoken")
+const OTP = require("../models/Otp")
+const crypto = require("crypto");
+const PasswordResetToken = require("../models/PasswordResetToken");
+
+function generateOTP() {
+
+
+    var digits = '0123456789';
+    let otp = '';
+    for (let i = 0; i < 6; i++) {
+        otp += digits[Math.floor(Math.random() * 10)];
+    }
+    return otp;
+
+
+}
+
+async function sendOTP(req, res) {
+
+    try {
+        // generate new otp
+        const otp = generateOTP();
+
+        // get email from req.body
+        const { email } = req.body;
+
+        // check if email is present in req.body
+        if (!email) {
+            return res.status(400).json({
+                "success": false,
+                "message": "Email not found",
+                "data": {}
+            })
+        }
+
+        // create entry in db for otp
+        const newOTP = new OTP({
+            email,
+            otp
+        });
+
+        // save otp in db
+        await newOTP.save();
+
+        // send response
+        return res.status(200).json({
+            "success": true,
+            "message": "OTP sent successfully",
+            "data": newOTP
+        })
+    } catch (error) {
+        return res.status(500).json({
+            "success": false,
+            "message": error.message,
+            "data": {}
+        })
+    }
+
+}
 
 async function signup(req, res) {
 
@@ -13,7 +72,8 @@ async function signup(req, res) {
         password,
         confirmPassword,
         role,
-        phoneNumber
+        phoneNumber,
+        otp
     } = req.body;
 
 
@@ -48,7 +108,30 @@ async function signup(req, res) {
             });
         }
 
-        // Step 4: If User Not Created Before then ...
+
+        // Step 4: Verify OTP
+
+        // most recent otp present in db
+        const OTPinDB = await OTP.findOne({ email }).sort({ createdAt: -1 }).limit(1);
+
+        // if otp is not present in db
+        if (!OTPinDB) {
+            return res.status(400).json({
+                "success": false,
+                "message": "Otp not found",
+                "data": OTPinDB
+            })
+        }
+
+        if (otp != OTPinDB.otp) {
+            return res.status(400).json({
+                "success": false,
+                "message": "Otp not matched",
+                "data": {}
+            })
+        }
+
+        // Step 5: If User Not Created Before then ...
         // Hash the password
         hash = await bcrypt.hash(password, 10)
 
@@ -65,7 +148,7 @@ async function signup(req, res) {
         // Create Entry in DB
         await newUser.save();
 
-        res.json({
+        res.status(200).json({
             "success": true,
             "message": "User Created Successfully",
             "data": newUser
@@ -73,7 +156,7 @@ async function signup(req, res) {
 
         // If Any Error Accures During This Process Then Give Internal Server Error
     } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             "success": false,
             "message": error,
             "data": {}
@@ -160,7 +243,7 @@ async function login(req, res) {
 async function isAuthenticate(req, res) {
 
     const data = {
-        "user": req.user.id
+        "user": req.user.id,
     }
 
     res.status(200).json({
@@ -170,8 +253,153 @@ async function isAuthenticate(req, res) {
     })
 }
 
+async function sendResetPasswordLink(req, res) {
+
+    const { email } = req.body;
+
+    try {
+        // 1st check if user exist or not
+        const user = await User.findOne({ email: email });
+        if (!user) {
+            return res.status(400).json({
+                "success": false,
+                "message": "User not found with that particular email",
+                "data": {}
+            })
+        }
+
+        // 2nd check if token already exist or not
+        // if exist {
+        //      delete that token
+        // }
+        // then --> create new token
+
+        const token = await PasswordResetToken.findOne({ email: email });
+        if (token) {
+            await token.deleteOne();
+        }
+
+        // 3rd create hash string and check if hash exist or not 
+        const resetPasswordHash = crypto.randomBytes(32).toString("hex");
+
+        if (!resetPasswordHash) {
+            return res.status(500).json({
+                "success": false,
+                "message": "Something went wrong",
+                "data": {}
+            })
+        }
+
+
+        // 4th save resetPasswordHash into ResetPasswordToken's DB
+        const resetPasswordToken = new PasswordResetToken({
+            email: email,
+            token: resetPasswordHash
+        });
+
+        await resetPasswordToken.save();
+
+        res.json({
+            "success": true,
+            "message": "Reset password link sent successfully",
+            "data": {}
+        })
+
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": "Internal Server Error",
+            "data": {}
+        })
+    }
+
+}
+
+async function verifyResetPasswordLink(req, res) {
+    const { password, confirmPassword, token, email } = req.body;
+    try {
+        // step - 1 : check if token exist or not
+        const dbToken = await PasswordResetToken.findOne({ email: email, token: token })
+
+        if (!dbToken) {
+            return res.status(400).json({
+                "success": false,
+                "message": "token not matched",
+                "data": {}
+            })
+        }
+
+        // step - 2 check for the both passwords is same or not 
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                "success": false,
+                "message": "Both Password does'nt match",
+                "data": {}
+            })
+        }
+
+        // step - 3 hash password using bcrypt
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // step - 4 update user's data in db
+        const updatedUser = await User.findOneAndUpdate({ email: email }, { password: hashedPassword }, { new: true });
+
+        res.status(200).json({
+            "success": true,
+            "message": "Password reset successfully",
+            "data": {}
+        })
+    }
+
+    catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": "Internal Server Error",
+            "data": {}
+        })
+    }
+}
+
+async function getUserInfo(req, res) {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(400).json({
+                "success": false,
+                "message": "User not found",
+                "data": {}
+            })
+        }
+
+        const userData = {
+            "firstname": user.firstname,
+            "lastname": user.lastname,
+            "username": user.username,
+            "email": user.email,
+            "phoneNumber": user.phoneNumber
+        }
+
+        res.status(200).json({
+            "success": true,
+            "message": "User found",
+            "data": userData
+        })
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": "Internal Server Error",
+            "data": {}
+        })
+    }
+}
+
 module.exports = {
     login,
     signup,
-    isAuthenticate
+    isAuthenticate,
+    sendOTP,
+    sendResetPasswordLink,
+    verifyResetPasswordLink,
+    getUserInfo
 }

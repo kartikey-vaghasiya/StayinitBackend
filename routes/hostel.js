@@ -15,8 +15,6 @@ Router.delete("/:id", deleteHostel)
 
 Router.post("/pricing", addPricingAndSharingDetails)
 
-Router.post("/aminities", addAminitiesDetails)
-
 Router.post("/hostel-image", addHostelImages)
 
 

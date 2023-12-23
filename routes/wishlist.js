@@ -5,9 +5,11 @@ const { getWishlist, addWishlist, removeFromWishlist } = require("../controllers
 
 const AuthMiddlewere = require("../middleweres/auth")
 
-Router.get("/", getWishlist)
-Router.post("/", AuthMiddlewere, addWishlist)
-Router.delete("/:id", AuthMiddlewere, removeFromWishlist)
+Router.get("/:userId", getWishlist)
+Router.get("/:userId/:propertyId", getWishlist)
+
+Router.post("/", addWishlist)
+Router.delete("/:userId/:propertyId", removeFromWishlist)
 
 module.exports = Router
 

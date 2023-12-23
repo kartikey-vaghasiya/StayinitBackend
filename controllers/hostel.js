@@ -1,6 +1,5 @@
 const Hostel = require("../models/Hostel")
 const PricingAndSharing = require("../models/PricingAndSharing")
-const Aminities = require("../models/Aminities")
 const Image = require("../models/Image")
 const { findById } = require("../models/Flat")
 
@@ -10,7 +9,8 @@ async function getHostel(req, res) {
         const { id } = req.params
 
         // Get Hostel From DB Using ID
-        const data = await Hostel.findById(id).populate('pricingAndSharing').populate('aminities').populate('imageUrlArray')
+        const data = await Hostel.findById(id).populate('pricingAndSharing').populate('arrayOfImages')
+
 
         if (data) {
             res.status(200).json({
@@ -38,50 +38,134 @@ async function getHostel(req, res) {
 
 async function getAllHostels(req, res) {
     try {
+        const {
+            gender,
+            liftFacility,
+            wifiFacility,
+            gymFacility,
+            acFacility,
+            gamingRoom,
+            freeLaundry,
+            securityGuard,
+            filterWater,
+            cctv,
+            cleaning,
+        } = req.query
 
-        const { sort, name, locality, city, gender } = req.query
+        const sortByPrice = req.query.sortByPrice;
+        const minPrice = req.query.minPrice || 0
+        const maxPrice = req.query.maxPrice || Infinity
 
         queryObj = {}
-
-        if (name) {
-            queryObj.hostel_name = { $regex: name, $options: 'i' }
+        if (liftFacility) {
+            queryObj.liftFacility = liftFacility
         }
-
-        if (locality) {
-            queryObj.property_locality = { $regex: locality, $options: 'i' }
+        if (wifiFacility) {
+            queryObj.wifiFacility = wifiFacility
         }
-
-        if (city) {
-            queryObj.property_city = { $regex: city, $options: 'i' }
+        if (gymFacility) {
+            queryObj.gymFacility = gymFacility
         }
-
+        if (acFacility) {
+            queryObj.acFacility = acFacility
+        }
+        if (gamingRoom) {
+            queryObj.gamingRoom = gamingRoom
+        }
+        if (freeLaundry) {
+            queryObj.freeLaundry = freeLaundry
+        }
+        if (securityGuard) {
+            queryObj.securityGuard = securityGuard
+        }
+        if (filterWater) {
+            queryObj.filterWater = filterWater
+        }
+        if (cctv) {
+            queryObj.cctv = cctv
+        }
+        if (cleaning) {
+            queryObj.cleaning = cleaning
+        }
         if (gender) {
             queryObj.forWhichGender = gender
         }
 
+
+
         // Get All Hostel From
-        const data = await Hostel.find(queryObj).populate('pricingAndSharing').populate('imageUrlArray').populate('aminities')
-            .sort(sort)
+        const data = await Hostel.find(queryObj)
+            .populate('pricingAndSharing')
+            .populate('arrayOfImages')
             .exec()
 
-        if (data.length > 0) {
+        // Filters based on price and sqft and sorting also
+        const filteredData = data.filter((hostel) => {
+            // Pricing and sharing array
+            const pricingAndSharingArray = hostel.pricingAndSharing;
+
+            // min and max of pricing and sharing array
+            const minPriceLocal = pricingAndSharingArray.reduce((acc, curr) => {
+                return (
+                    Math.min(curr.price, acc)
+                )
+            }, Infinity)
+            const maxPriceLocal = pricingAndSharingArray.reduce((acc, curr) => {
+                return (
+                    Math.max(curr.price, acc)
+                )
+            }, 0)
+
+
+            // applying filter and sorting 
+            return (minPrice <= maxPriceLocal && maxPrice >= minPriceLocal)
+
+        }).sort((hostelA, hostelB) => {
+
+            // Pricing and sharing array
+            const pricingAndSharingArrayA = hostelA.pricingAndSharing;
+
+            // min and max of pricing and sharing array
+            const minPriceLocalA = pricingAndSharingArrayA.reduce((acc, curr) => {
+                return (
+                    Math.min(curr.price, acc)
+                )
+            }, Infinity)
+
+            // Pricing and sharing array
+            const pricingAndSharingArrayB = hostelB.pricingAndSharing;
+
+            // min and max of pricing and sharing array
+            const minPriceLocalB = pricingAndSharingArrayB.reduce((acc, curr) => {
+                return (
+                    Math.min(curr.price, acc)
+                )
+            }, Infinity)
+
+            if (sortByPrice == 1) {
+                return (minPriceLocalA - minPriceLocalB)
+            } else {
+                return (minPriceLocalB - minPriceLocalA)
+            }
+        })
+
+        if (filteredData.length > 0) {
             res.status(200).json({
                 "success": true,
                 "message": "Successful Get Request",
-                "data": data
+                "data": filteredData
             })
         } else {
             res.status(404).json({
                 "success": false,
                 "error": "Hostels Not Found",
-                "data": data
+                "data": {}
             })
         }
-
     } catch (e) {
         res.status(500).json({
             "success": false,
-            "error": e,
+            "error": e.message,
             "data": {}
         })
     }
@@ -93,11 +177,20 @@ async function addHostel(req, res) {
         const {
             hostel_name,
             pricingAndSharing,
-            imageUrlArray,
+            arrayOfImages,
             locality,
             city,
             forWhichGender,
-            aminities,
+            liftFacility,
+            wifiFacility,
+            gymFacility,
+            acFacility,
+            gamingRoom,
+            freeLaundry,
+            securityGuard,
+            filterWater,
+            cctv,
+            cleaning,
             description,
             contactNum,
             contactMail,
@@ -109,11 +202,20 @@ async function addHostel(req, res) {
         const hostel = new Hostel({
             hostel_name,
             pricingAndSharing,
-            imageUrlArray,
+            arrayOfImages,
             locality,
             city,
             forWhichGender,
-            aminities,
+            liftFacility,
+            wifiFacility,
+            gymFacility,
+            acFacility,
+            gamingRoom,
+            freeLaundry,
+            securityGuard,
+            filterWater,
+            cctv,
+            cleaning,
             description,
             contactNum,
             contactMail,
@@ -122,7 +224,7 @@ async function addHostel(req, res) {
         })
 
         const hostelData = await hostel.save()
-        
+
         res.status(201).json({
             "success": true,
             "message": "Hostel created successfully",
@@ -179,11 +281,20 @@ async function updateHostel(req, res) {
         const {
             hostel_name,
             pricingAndSharing,
-            imageUrlArray,
+            arrayOfImages,
             locality,
             city,
             forWhichGender,
-            aminities,
+            liftFacility,
+            wifiFacility,
+            gymFacility,
+            acFacility,
+            gamingRoom,
+            freeLaundry,
+            securityGuard,
+            filterWater,
+            cctv,
+            cleaning,
             description,
             contactNum,
             contactMail,
@@ -194,11 +305,20 @@ async function updateHostel(req, res) {
         const updatedHostel = {
             hostel_name,
             pricingAndSharing,
-            imageUrlArray,
+            arrayOfImages,
             locality,
             city,
             forWhichGender,
-            aminities,
+            liftFacility,
+            wifiFacility,
+            gymFacility,
+            acFacility,
+            gamingRoom,
+            freeLaundry,
+            securityGuard,
+            filterWater,
+            cctv,
+            cleaning,
             description,
             contactNum,
             contactMail,
@@ -243,7 +363,7 @@ async function addPricingAndSharingDetails(req, res) {
             "sharing": sharing,
             "price": price,
         })
-        
+
         // Creating entry in DB
         const createdPricing = await pricing.save()
 
@@ -269,64 +389,6 @@ async function addPricingAndSharingDetails(req, res) {
     }
 }
 
-async function addAminitiesDetails(req, res) {
-
-    try {
-        const {
-            hostel,
-            liftFacility,
-            wifiFacility,
-            gymFacility,
-            acFacility,
-            gamingRoom,
-            freeLaundry,
-            securityGuard,
-            filterWater,
-            cctv,
-            cleaning
-        } = req.body
-
-        let aminities = new Aminities({
-            hostel,
-            liftFacility,
-            wifiFacility,
-            gymFacility,
-            acFacility,
-            gamingRoom,
-            freeLaundry,
-            securityGuard,
-            filterWater,
-            cctv,
-            cleaning
-        })
-
-        // Creating entry in DB
-        await aminities.save()
-
-        // Get the hostel document that you want to update
-        const hostelDocument = await Hostel.findOne({ _id: hostel })
-
-        // Add the amenities ID to the `amenities` field of the hostel document
-        hostelDocument.aminities = aminities._id
-
-        // Update the hostel document
-        await hostelDocument.save()
-
-        res.status(201).json({
-            "success": true,
-            "message": "Aminities Created Successfully",
-            "data": aminities
-        })
-    } catch (e) {
-        res.status(500).json({
-            "success": false,
-            "message": e,
-            "data": {}
-        })
-    }
-
-}
-
 async function addHostelImages(req, res) {
     try {
         const {
@@ -345,7 +407,7 @@ async function addHostelImages(req, res) {
         const createdHostelImage = await hostelImages.save()
 
         const reletedHostel = await Hostel.findOne({ _id: flatOrHostelId })
-        reletedHostel.imageUrlArray.push(createdHostelImage._id)
+        reletedHostel.arrayOfImages.push(createdHostelImage._id)
         await reletedHostel.save()
 
         if (createdHostelImage) {
@@ -372,6 +434,5 @@ module.exports = {
     deleteHostel,
     updateHostel,
     addPricingAndSharingDetails,
-    addAminitiesDetails,
     addHostelImages,
 }

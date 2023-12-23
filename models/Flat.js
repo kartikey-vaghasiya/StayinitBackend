@@ -71,7 +71,7 @@ const Flatschema = new mongoose.Schema({
         required: true
     },
 
-    imageUrlArray: {
+    arrayOfImages: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: "Image"
     },

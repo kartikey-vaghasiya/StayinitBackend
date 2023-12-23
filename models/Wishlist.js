@@ -8,10 +8,21 @@ const WishlistSchema = new mongoose.Schema({
         required: true
     },
 
-    likedProperty: {
+    flatId: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true
+        ref: "Flat",
     },
+
+    hostelId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Hostel",
+    },
+
+    type: {
+        type: String,
+        enum: ["hostel", "flat"],
+    }
+
 })
 
 module.exports = mongoose.model("Wishlist", WishlistSchema)

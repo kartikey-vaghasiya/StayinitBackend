@@ -19,7 +19,7 @@ const HostelSchema = new mongoose.Schema({
         required: true
     },
 
-    imageUrlArray: {
+    arrayOfImages: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: "Image"
     },
@@ -40,10 +40,16 @@ const HostelSchema = new mongoose.Schema({
         required: true
     },
 
-    aminities: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Aminities",
-    },
+    liftFacility: Boolean,
+    wifiFacility: Boolean,
+    gymFacility: Boolean,
+    acFacility: Boolean,
+    gamingRoom: Boolean,
+    freeLaundry: Boolean,
+    securityGuard: Boolean,
+    filterWater: Boolean,
+    cctv: Boolean,
+    cleaning: Boolean,
 
     description: {
         type: String,
@@ -67,7 +73,7 @@ const HostelSchema = new mongoose.Schema({
 
     address: String,
 
-    nearestLandmarks: [String]
+    nearestLandmarks: [String],
 
 }, { timestamps: true })
 

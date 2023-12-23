@@ -7,8 +7,8 @@ async function getFlat(req, res) {
         const { id } = req.params
 
         // Get Flat From DB Using ID
-        const data = await Flat.findById(id).populate("imageUrlArray")
-
+        const data = await Flat.findById(id).populate("arrayOfImages")
+        console.log(data)
         try {
             res.status(200).json({
                 "success": true,
@@ -18,7 +18,7 @@ async function getFlat(req, res) {
         } catch (e) {
             res.status(404).json({
                 "success": false,
-                "error": e,
+                "error": e.message,
                 "data": {}
             })
         }
@@ -36,38 +36,41 @@ async function getFlat(req, res) {
 async function getAllFlats(req, res) {
     try {
 
-        const { sort, name, bhk, sqft, locality, city, furnitureType } = req.query
+        const { bhk, sqft, furnitureType } = req.query
 
         const minPrice = req.query.minPrice || 0
         const maxPrice = req.query.maxPrice || Infinity
         const minSqft = req.query.minSqft || 0
         const maxSqft = req.query.maxSqft || Infinity
+        const sortByPrice = req.query.sortByPrice;
+        const sortBySqft = req.query.sortBySqft;
 
         queryObj = {}
-
-        if (name) {
-            queryObj.property_name = { $regex: name, $options: 'i' }
-        }
 
         if (bhk) {
             queryObj.property_bhk = bhk
         }
 
-        if (locality) {
-            queryObj.property_locality = { $regex: locality, $options: 'i' }
-        }
-
-        if (city) {
-            queryObj.property_city = { $regex: city, $options: 'i' }
-        }
-
         if (furnitureType) {
             queryObj.furnitureType = furnitureType
         }
+
         // Get queryed data
         const data = await Flat.find(queryObj)
-            .populate("imageUrlArray")
-            .sort(sort)
+            .populate("arrayOfImages")
+            .sort(
+                sortByPrice ?
+                    {
+                        "property_price": sortByPrice
+                    }
+                    :
+                    sortBySqft ?
+                        {
+                            "property_sqft": sortBySqft
+                        }
+                        :
+                        null
+            )
             .where("property_price").gt(minPrice).lt(maxPrice)
             .where("property_sqft").gt(minSqft).lt(maxSqft)
             .exec()
@@ -113,7 +116,7 @@ async function addFlat(req, res) {
             num_of_baths,
             num_of_balconies,
             furnitureType,
-            imageUrlArray,
+            arrayOfImages,
             locality_url,
             address,
             contactNum,
@@ -136,7 +139,7 @@ async function addFlat(req, res) {
             num_of_baths,
             num_of_balconies,
             furnitureType,
-            imageUrlArray,
+            arrayOfImages,
             locality_url,
             address,
             contactNum,
@@ -281,6 +284,7 @@ async function addFlatImages(req, res) {
             tags,
         } = req.body
 
+
         let flatImages = new Image({
             url,
             flatOrHostelId,
@@ -290,9 +294,11 @@ async function addFlatImages(req, res) {
         // Creating entry in DB
         const createdFlatImage = await flatImages.save()
 
+
         const reletedFlat = await Flat.findOne({ _id: flatOrHostelId })
-        reletedFlat.imageUrlArray.push(createdFlatImage._id)
+        reletedFlat.arrayOfImages.push(createdFlatImage._id)
         await reletedFlat.save()
+
 
         if (createdFlatImage) {
             res.status(201).json({
