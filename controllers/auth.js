@@ -1,297 +1,294 @@
 const User = require("../models/User")
+const Profile = require("../models/Profile")
+const Otp = require("../models/Otp")
+const PasswordResetToken = require("../models/PasswordResetToken")
+
 const bcrypt = require("bcrypt")
 const jwt = require("jsonwebtoken")
-const OTP = require("../models/Otp")
-const crypto = require("crypto");
-const PasswordResetToken = require("../models/PasswordResetToken");
+const crypto = require("crypto")
 
-function generateOTP() {
-
-
-    var digits = '0123456789';
-    let otp = '';
-    for (let i = 0; i < 6; i++) {
-        otp += digits[Math.floor(Math.random() * 10)];
-    }
-    return otp;
-
-
-}
-
-async function sendOTP(req, res) {
-
-    try {
-        // generate new otp
-        const otp = generateOTP();
-
-        // get email from req.body
-        const { email } = req.body;
-
-        // check if email is present in req.body
-        if (!email) {
-            return res.status(400).json({
-                "success": false,
-                "message": "Email not found",
-                "data": {}
-            })
-        }
-
-        // create entry in db for otp
-        const newOTP = new OTP({
-            email,
-            otp
-        });
-
-        // save otp in db
-        await newOTP.save();
-
-        // send response
-        return res.status(200).json({
-            "success": true,
-            "message": "OTP sent successfully",
-            "data": newOTP
-        })
-    } catch (error) {
-        return res.status(500).json({
-            "success": false,
-            "message": error.message,
-            "data": {}
-        })
-    }
-
-}
-
-async function signup(req, res) {
-
-    // Get Data from req.body
-    const {
-        firstname,
-        lastname,
-        username,
-        email,
-        password,
-        confirmPassword,
-        role,
-        phoneNumber,
-        otp
-    } = req.body;
-
-
-    // Step 1: Check if ( Email And Username ) And ( Password and Confirmation Password ) is provided or Not
-    if (!email || !username || !((password.length) > 8) || !((confirmPassword.length) > 8)) {
-        return res.json({
-            "success": false,
-            "message": "Please provide email and password of valid length",
-            "data": {}
-        });
-    }
-
-
-    // Step 2: if all values are Provided then Compare Password with Confirmation Password
-    if (password !== confirmPassword) {
-        return res.json({
-            "success": false,
-            "message": "Both Password does'nt match",
-            "data": {}
-        })
-    }
-
-    // Step 3: Check if  Already a User Is Exist with that email or username or Not 
-    try {
-        const existingUser = await (User.findOne({ email: email }) || User.findOne({ username: username }))
-
-        if (existingUser) {
-            return res.json({
-                "success": false,
-                "message": "You already have an account linked to this email or username",
-                "data": {}
-            });
-        }
-
-
-        // Step 4: Verify OTP
-
-        // most recent otp present in db
-        const OTPinDB = await OTP.findOne({ email }).sort({ createdAt: -1 }).limit(1);
-
-        // if otp is not present in db
-        if (!OTPinDB) {
-            return res.status(400).json({
-                "success": false,
-                "message": "Otp not found",
-                "data": OTPinDB
-            })
-        }
-
-        if (otp != OTPinDB.otp) {
-            return res.status(400).json({
-                "success": false,
-                "message": "Otp not matched",
-                "data": {}
-            })
-        }
-
-        // Step 5: If User Not Created Before then ...
-        // Hash the password
-        hash = await bcrypt.hash(password, 10)
-
-        const newUser = new User({
-            firstname,
-            lastname,
-            username,
-            email,
-            "password": hash,
-            role,
-            phoneNumber
-        });
-
-        // Create Entry in DB
-        await newUser.save();
-
-        res.status(200).json({
-            "success": true,
-            "message": "User Created Successfully",
-            "data": newUser
-        });
-
-        // If Any Error Accures During This Process Then Give Internal Server Error
-    } catch (error) {
-        return res.status(500).json({
-            "success": false,
-            "message": error,
-            "data": {}
-        });
-    }
-}
+require('dotenv').config();
 
 async function login(req, res) {
-    // Get Data From req.body
-    const { usernameOrEmail, password } = req.body;
-
-    // Step 1: Check if User Entered ( Username Or Email ) And Password
-    if (!usernameOrEmail && !password) {
-        return res.json({
-            "success": false,
-            "message": "Please provide email and password",
-            "data": {}
-        })
-    }
 
     try {
+        const { email, password } = req.body;
 
-        // Step 2: Finding User by it's Username or Email
-        const existingUser = await User.findOne({ email: usernameOrEmail }) || await User.findOne({ username: usernameOrEmail });
-
-        // Step 3: If User Exist Then Compare Password
-        if (existingUser) {
-
-            // Bcrypt Function to compare passwords ( plainPassword , SaltedPassword )
-            let comparePassword = await bcrypt.compare(password, existingUser.password)
-
-            // Step 3.1 : If Password Matches then Login Succesfully
-            if (comparePassword) {
-
-                // Step 3.2 Create JWT Token And Save it into Cookie
-                const userData = {
-                    id: existingUser._id,
-                    email: existingUser.email,
-                    username: existingUser.username,
-                    role: existingUser.role
-                }
-
-                const token = jwt.sign(userData, process.env.JWT_SECRET, { expiresIn: '1h' })
-
-                existingUser.password = undefined;
-
-                return res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 })
-                    .json({
-                        "success": true,
-                        "token": token,
-                        "message": "User Logged in succesfully",
-                        "data": existingUser
-                    })
-
-                // Step 3.1 : If Password Doesn't Match then Give Failure Response
-            } else {
-                return res.json({
-                    "success": false,
-                    "message": "Password is not matching",
-                    "data": {}
-                })
-            }
-
-            // Step 3.2 If User Not Exist Then Give Failure Message
-        } else {
-            return res.json({
+        if (!(email && password)) {
+            return res.status(500).json({
                 "success": false,
-                "message": "User not found",
-                "data": {}
+                "message": "email and password are required",
             })
         }
 
-        // If Any Error Accures During This Process Then Give Internal Server Error
+        const user = await User.findOne({ email })
+
+        if (!user) {
+            return res.status(500).json({
+                "success": false,
+                "message": "user not found with given email",
+            })
+        }
+
+        // compare plain-password & salted-password
+        const isPasswordSame = await bcrypt.compare(password, user.password)
+
+        if (!isPasswordSame) {
+            return res.status(500).json({
+                "success": false,
+                "message": "password is incorrect",
+            })
+        }
+
+        const userProfile = await Profile.findOne({ userId: user._id })
+        if (!userProfile) {
+            return res.status(500).json({
+                "success": false,
+                "message": "user profile not found",
+            })
+        }
+
+        const token = jwt.sign({ "profile": userProfile }, process.env.JWT_SECRET, { expiresIn: '1h' })
+
+        return res
+            .status(200)
+            .json({
+                "success": true,
+                "token": token,
+                "message": "user logged-in successfully",
+                "data": userProfile
+            })
+
     } catch (error) {
-        console.error("Error during login:", error);
         res.status(500).json({
             "success": false,
-            "message": "Internal Server Error",
-            "data": {}
+            "message": error.message,
         });
     }
 }
 
 async function isAuthenticate(req, res) {
 
-    const data = {
-        "user": req.user.id,
-    }
+    try {
+        const profile = req.user;
 
-    res.status(200).json({
-        "success": true,
-        "message": "This user is authenticated",
-        "data": data
-    })
+        res.status(200).json({
+            "success": true,
+            "message": "user is authenticated",
+            "data": profile
+        })
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": error.message,
+        });
+    }
+}
+
+async function register(req, res) {
+
+    try {
+        const {
+            username,
+            role,
+            email,
+            phoneNumber,
+            password,
+            confirmPassword
+        } = req.body;
+
+        if (!(username && email && password && confirmPassword)) {
+            return res.status(500).json({
+                "success": false,
+                "message": "all fields are required",
+            })
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(500).json({
+                "success": false,
+                "message": "password and confirm-password are not same",
+            })
+        }
+
+        if (password.length < 8) {
+            return res.status(500).json({
+                "success": false,
+                "message": "password length must be greater than 8",
+            })
+        }
+
+        const user = await User.findOne({ email })
+
+        if (user) {
+            return res.json({
+                "success": false,
+                "message": "user already exists with given email",
+            });
+        }
+
+        const hash = await bcrypt.hash(password, parseInt(process.env.SALT_ROUNDS))
+
+        const newUser = new User({
+            username,
+            role,
+            email,
+            phoneNumber,
+            password: hash
+        });
+
+        await newUser.save();
+
+        const profile = new Profile({
+            userId: newUser._id,
+            username,
+            comments: [],
+            wishlist: [],
+        });
+
+        await profile.save();
+
+        newUser.profile = profile._id;
+
+        res.status(200).json({
+            "success": true,
+            "message": "user registered successfully",
+            "data": newUser
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            "success": false,
+            "message": error.message,
+        });
+    }
+}
+
+async function sendOTP(req, res) {
+
+    try {
+
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(500).json({
+                "success": false,
+                "message": "email is required",
+            })
+        }
+
+        const emailInDB = await User.findOne({ email });
+
+        if (emailInDB) {
+            return res.status(500).json({
+                "success": false,
+                "message": "user already exist with given email",
+            })
+        }
+
+        const otpInDB = await Otp.findOne({ email }).sort({ createdAt: -1 }).limit(1);
+        if (otpInDB) {
+            await otpInDB.deleteOne()
+        }
+
+        // generating otp...
+        let digits = '0123456789';
+        let otp = '';
+        for (let i = 0; i < 6; i++) {
+            otp += digits[Math.floor(Math.random() * 10)];
+        }
+
+        const newOTP = new Otp({
+            email,
+            otp
+        });
+
+        await newOTP.save();
+
+        return res.status(200).json({
+            "success": true,
+            "message": "otp created successfully",
+            "data": newOTP
+        })
+    } catch (error) {
+        return res.status(500).json({
+            "success": false,
+            "message": error.message,
+        })
+    }
+}
+
+async function verifyOTP(req, res) {
+
+    try {
+
+        const { email, otp } = req.body;
+
+        if (!(email && otp)) {
+            return res.status(500).json({
+                "success": false,
+                "message": "email and otp are required",
+            })
+        }
+
+        const OTPinDB = await Otp.findOne({ email }).sort({ createdAt: -1 }).limit(1);
+
+        if (!OTPinDB) {
+            return res.status(500).json({
+                "success": false,
+                "message": "otp not found",
+            })
+        }
+
+        if (otp !== OTPinDB.otp) {
+            return res.status(500).json({
+                "success": false,
+                "message": "incorrect otp",
+            })
+        }
+
+        await Otp.findByIdAndDelete(OTPinDB._id)
+
+        res.status(200).json({
+            "success": true,
+            "message": "otp verified successfully",
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            "success": false,
+            "message": error.message,
+        })
+    }
 }
 
 async function sendResetPasswordLink(req, res) {
 
-    const { email } = req.body;
-
     try {
-        // 1st check if user exist or not
-        const user = await User.findOne({ email: email });
+        const { email } = req.body;
+
+        const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({
+            return res.status(500).json({
                 "success": false,
-                "message": "User not found with that particular email",
-                "data": {}
+                "message": "user not found with given email",
             })
         }
 
-        // 2nd check if token already exist or not
-        // if exist {
-        //      delete that token
-        // }
-        // then --> create new token
-
-        const token = await PasswordResetToken.findOne({ email: email });
+        const token = await PasswordResetToken.findOne({ email });
         if (token) {
             await token.deleteOne();
         }
 
-        // 3rd create hash string and check if hash exist or not 
         const resetPasswordHash = crypto.randomBytes(32).toString("hex");
 
         if (!resetPasswordHash) {
             return res.status(500).json({
                 "success": false,
-                "message": "Something went wrong",
-                "data": {}
+                "message": "reset password hash not found",
             })
         }
 
-
-        // 4th save resetPasswordHash into ResetPasswordToken's DB
         const resetPasswordToken = new PasswordResetToken({
             email: email,
             token: resetPasswordHash
@@ -299,107 +296,65 @@ async function sendResetPasswordLink(req, res) {
 
         await resetPasswordToken.save();
 
-        res.json({
+        res.status(200).json({
             "success": true,
-            "message": "Reset password link sent successfully",
-            "data": {}
+            "message": "reset password link sent successfully",
         })
 
     } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             "success": false,
-            "message": "Internal Server Error",
-            "data": {}
+            "message": error.message,
         })
     }
 
 }
 
 async function verifyResetPasswordLink(req, res) {
-    const { password, confirmPassword, token, email } = req.body;
-    try {
-        // step - 1 : check if token exist or not
-        const dbToken = await PasswordResetToken.findOne({ email: email, token: token })
 
-        if (!dbToken) {
-            return res.status(400).json({
+    try {
+        const { password, confirmPassword, token, email } = req.body;
+
+        const tokenInDB = await PasswordResetToken.findOne({ email, token })
+
+        if (!tokenInDB) {
+            return res.status(500).json({
                 "success": false,
-                "message": "token not matched",
-                "data": {}
+                "message": "token not found",
             })
         }
 
-        // step - 2 check for the both passwords is same or not 
         if (password !== confirmPassword) {
-            return res.status(400).json({
+            return res.status(500).json({
                 "success": false,
-                "message": "Both Password does'nt match",
-                "data": {}
+                "message": "password and confirm-password are not same",
             })
         }
 
-        // step - 3 hash password using bcrypt
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, parseInt(process.env.SALT_ROUNDS));
 
-        // step - 4 update user's data in db
-        const updatedUser = await User.findOneAndUpdate({ email: email }, { password: hashedPassword }, { new: true });
+        await User.findOneAndUpdate({ email }, { password: hashedPassword }, { new: true });
 
-        res.status(200).json({
-            "success": true,
-            "message": "Password reset successfully",
-            "data": {}
-        })
-    }
-
-    catch (error) {
-        res.status(500).json({
-            "success": false,
-            "message": "Internal Server Error",
-            "data": {}
-        })
-    }
-}
-
-async function getUserInfo(req, res) {
-    const { userId } = req.params;
-    try {
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(400).json({
-                "success": false,
-                "message": "User not found",
-                "data": {}
-            })
-        }
-
-        const userData = {
-            "firstname": user.firstname,
-            "lastname": user.lastname,
-            "username": user.username,
-            "email": user.email,
-            "phoneNumber": user.phoneNumber
-        }
+        await tokenInDB.deleteOne();
 
         res.status(200).json({
             "success": true,
-            "message": "User found",
-            "data": userData
+            "message": "password reset successfully",
         })
     } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             "success": false,
-            "message": "Internal Server Error",
-            "data": {}
+            "message": error.message,
         })
     }
 }
 
 module.exports = {
     login,
-    signup,
     isAuthenticate,
+    register,
     sendOTP,
+    verifyOTP,
     sendResetPasswordLink,
-    verifyResetPasswordLink,
-    getUserInfo
+    verifyResetPasswordLink
 }

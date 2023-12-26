@@ -2,157 +2,207 @@ const Comment = require('../models/Comment');
 const Flat = require('../models/Flat');
 const Hostel = require('../models/Hostel');
 const User = require('../models/User');
+const Profile = require('../models/Profile');
 
 async function addComment(req, res) {
 
     try {
-        // geeting { flat/hosted id , comment , user } data from req.body
-        const { hostelOrFlatId, comment, user, starRating } = req.body
-        // if any of these data is missing then return error
-        if (!hostelOrFlatId || !user || !starRating) {
-            return res.json({
-                "success": false,
-                "message": "Either flat/hostel id or starrating or user data is missing",
-                "data": {}
-            })
-        }
-        // if any of the comment and StarRating is already exist then delete prev and add this comment 
-        const commentExist = await Comment.findOne({ hostelOrFlatId, user })
 
-        if (commentExist) {
-            await commentExist.deleteOne()
-        }
-
-        // find if user is exist or not
-        // find if flat/hostel is exist or not
-        const userExist = await User.findById(user);
-        const flatExist = await Flat.findById(hostelOrFlatId);
-        const hostelExist = await Hostel.findById(hostelOrFlatId);
-
-        if (!userExist || (!flatExist && !hostelExist)) {
-            return res.json({
-                "success": false,
-                "message": "Either user or flat/hostel is not exist",
-                "data": {}
-            })
-        }
-
-        // if user and flat/hostel is exist then add comment to database
-        const commentObj = new Comment({
+        const {
+            rating,
             comment,
-            user,
-            hostelOrFlatId,
-            starRating
-        });
-        await commentObj.save();
+            flat,
+            hostel,
+            profile,
+            type
+        } = req.body
 
-        // return success message
+
+        if (type === "flat" && !flat || type === "hostel" && !hostel) {
+            return res.status(500).json({
+                "success": false,
+                "message": "for flat flat and for hostel hostel is required",
+            })
+        }
+
+        if (!rating || !(flat || hostel) || !profile || !type) {
+            return res.status(500).json({
+                "success": false,
+                "message": "rating, flat/hostel, profile, type these fields are required",
+            })
+        }
+
+        const commentInDB = await Comment.findOne({
+            flat: type === "flat" ? flat : undefined,
+            hostel: type === "hostel" ? hostel : undefined,
+            profile
+        })
+
+        if (commentInDB) {
+            await commentInDB.deleteOne()
+            const profileForCommentInDB = await Profile.findById(profile);
+            profileForCommentInDB.comments.pull(commentInDB._id);
+            profileForCommentInDB.save();
+        }
+
+        const profileInDB = await Profile.findById(profile);
+        const flatInDB = await Flat.findById(flat);
+        const hostelInDB = await Hostel.findById(hostel);
+
+        if (!profileInDB || (!flatInDB && !hostelInDB)) {
+            return res.status(500).json({
+                "success": false,
+                "message": "profile or flat or hostel is not exist",
+            })
+        }
+
+        const newComment = new Comment({
+            rating,
+            comment,
+            "flat": type === 'flat' ? flat : undefined,
+            "hostel": type === 'hostel' ? hostel : undefined,
+            profile,
+            type
+        });
+
+        await newComment.save();
+
+        const userProfile = await Profile.findById(profile)
+
+        userProfile.comments.push(newComment._id);
+        await userProfile.save();
+
         res.json({
             "success": true,
             "message": "comment added successfully",
-            "data": commentObj
+            "data": newComment
         })
+
     } catch (error) {
-        res.json({
-            "success": false,
-            "message": "error during adding comment",
-            "error": error.message,
-            "data": {}
-        })
-    }
-}
-
-async function getCommentForFlatOrHostel(req, res) {
-    try {
-        // getting flat/hostel id from req.params
-        const { hostelOrFlatId } = req.params;
-
-        // if flat/hostel id is not exist then return error
-        if (!hostelOrFlatId) {
-            return res.json({
-                "success": false,
-                "message": "flat/hostel id is missing",
-                "data": {}
-            })
-        }
-
-        // find all comments for this flat/hostel
-        const comments = await Comment.find({ hostelOrFlatId: hostelOrFlatId }).populate('user');
-        secureComment = comments.map((comment) => {
-            comment.user.password = undefined;
-            return comment;
-        })
-
-        // return success message
-        res.json({
-            "success": true,
-            "message": "comments fetched successfully",
-            "data": secureComment
-        })
-    } catch (error) {
-        console.log(error);
-        res.json({
-            "success": false,
-            "message": "error during fetching comments",
-            "error": error.message,
-            "data": {}
-        })
-    }
-}
-
-async function getAverageRating(req, res) {
-    const { hostelOrFlatId } = req.params;
-
-    try {
-        // check if hostelOrFlatId is exist or not
-        if (!hostelOrFlatId) {
-            return res.json({
-                "success": false,
-                "message": "flat/hostel id is missing",
-                "data": {}
-            })
-        }
-        // check if hostel or flat releted to this id is exist or not
-        const flatExist = await Flat.findById(hostelOrFlatId);
-        let hostelExist;
-        if (!flatExist) {
-            hostelExist = await Hostel.findById(hostelOrFlatId);
-            if (!hostelExist) {
-                return res.json({
-                    "success": false,
-                    "message": "flat/hostel is not exist",
-                    "data": {}
-                })
-            }
-        }
-
-        // if exist then find average rating for this hostel/flat
-        const comments = await Comment.find({ hostelOrFlatId: hostelOrFlatId });
-        let sum = 0;
-        comments.forEach(comment => {
-            sum += comment.starRating;
-        });
-        const averageRating = sum / comments.length;
-
-        // return success message
-        res.json({
-            "success": true,
-            "message": "average rating fetched successfully",
-            "data": averageRating
-        })
-    } catch (error) {
-        // return error message
         res.status(500).json({
             "success": false,
-            "message": "error during fetching average rating",
-            "error": error.message,
-            "data": {}
+            "message": error.message,
         })
     }
+}
+
+async function getAllFlatComments(req, res) {
+    try {
+        const { flatId } = req.params;
+
+        if (!flatId) {
+            return res.status(500).json({
+                "success": false,
+                "message": "flat-id is required",
+            })
+        }
+
+        const comments = await Comment.find({ flat: flatId }).populate('profile');
+
+        const numOfRating = comments.length;
+        const sumOfRating = comments.reduce((sum, comment) => sum + comment.rating, 0);
+        const averageRating = sumOfRating / numOfRating;
+
+        res.status(200).json({
+            "success": true,
+            "message": "comments fetched successfully",
+            "data": { "comments": comments, "averageRating": averageRating }
+        })
+
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": error.message,
+        })
+    }
+
+}
+
+async function getAllHostelComments(req, res) {
+    try {
+        const { hostelId } = req.params;
+
+        if (!hostelId) {
+            return res.status(500).json({
+                "success": false,
+                "message": "hostel-id is required",
+            })
+        }
+
+        const comments = await Comment.find({ hostel: hostelId }).populate('profile');
+
+
+        const numOfRating = comments.length;
+        const sumOfRating = comments.reduce((sum, comment) => sum + comment.rating, 0);
+        const averageRating = sumOfRating / numOfRating;
+
+        res.status(200).json({
+            "success": true,
+            "message": "comments fetched successfully",
+            "data": { "comments": comments, "averageRating": averageRating }
+        })
+
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": error.message,
+        })
+    }
+
+}
+
+async function deleteComment(req, res) {
+    try {
+        const { commentId } = req.params;
+
+        if (!commentId) {
+            return res.status(500).json({
+                "success": false,
+                "message": "comment-id is required",
+            })
+        }
+
+        const comment = await Comment.findById(commentId);
+
+        if (!comment) {
+            return res.status(500).json({
+                "success": false,
+                "message": "comment is not exist",
+            })
+        }
+
+        const userProfile = await Profile.findById(comment.profile);
+
+        if (!userProfile) {
+            return res.status(500).json({
+                "success": false,
+                "message": "user profile is not exist",
+            })
+        }
+
+        userProfile.comments.pull(comment._id);
+        await userProfile.save();
+
+        await comment.deleteOne();
+
+        res.status(200).json({
+            "success": true,
+            "message": "comment deleted successfully",
+            "data": comment
+        })
+
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "message": error.message,
+        })
+    }
+
 }
 
 module.exports = {
     addComment,
-    getAverageRating,
-    getCommentForFlatOrHostel
+    getAllFlatComments,
+    getAllHostelComments,
+    deleteComment
 }

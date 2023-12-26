@@ -1,56 +1,45 @@
 const express = require("express")
 const app = express();
 const fileupload = require("express-fileupload")
+// >>> security packages
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const rateLimit = require('express-rate-limit');
+const xss = require('xss-clean');
+const cors = require("cors")
+// >>> config packages
 require('dotenv').config();
-
 const connectDB = require("./config/database")
 const connectCloudinary = require("./config/cloudinary")
-
-// --------------- Routers ------------------
-const AuthRouter = require("./routes/auth");
-const FileRouter = require("./routes/file")
-const HostelRouter = require("./routes/hostel")
-const FlatRouter = require("./routes/flat")
-const WishlistRouter = require("./routes/wishlist")
+// >>> routers
+const AuthRouter = require("./routes/auth")
 const CommentRouter = require("./routes/comment")
+const FileRouter = require("./routes/file")
+const FlatRouter = require("./routes/flat")
+const HostelRouter = require("./routes/hostel")
+const ProfileRouter = require("./routes/profile")
+const WishlistRouter = require("./routes/wishlist")
 
-const cookieParser = require("cookie-parser");
 
 
-// --------------- Security Middleweres ------------------
+// >>> security middlewares 
+app.use(cors("*"))
 app.set('trust proxy', 1);
-// const cors = require('cors');
-// app.use(cors({
-//     origin: '*',
-//     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-//     credentials: true,
-//     optionsSuccessStatus: 204,
-// }));
-
-// --------------- Security Middleweres ------------------
-const mongoSanitize = require('express-mongo-sanitize');
-const helmet = require('helmet');
-const xss = require('xss-clean');
-const rateLimit = require('express-rate-limit');
-
-// Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
-
-// Set security headers
 app.use(helmet());
-
-// Prevent XSS attacks
 app.use(xss());
 
-// Rate limiting
 const limiter = rateLimit({
     max: 100000, // max requests
     windowMs: 60 * 60 * 1000, // 1 Hour of 'ban' / lockout
     message: 'Too many requests' // message to send
 });
+
 app.use(limiter);
 
-// --------------- Parsers and FileUpload Config ------------------
+// >>> parser middlewares
+
+const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 app.use(express.json());
 app.use(fileupload({
@@ -59,24 +48,17 @@ app.use(fileupload({
 }));
 
 
-// --------------- Parsers and FileUpload Config ------------------
-app.use(cookieParser());
-app.use(express.json());
-app.use(fileupload({
-    useTempFiles: true,
-    tempFileDir: '/tmp/'
-}))
-
-// --------------- use Routers ------------------
+// >>> use Routers 
 app.use("/api/v1/auth", AuthRouter)
-app.use("/api/v1/file", FileRouter)
+app.use("/api/v1/profile", ProfileRouter)
 app.use("/api/v1/flat", FlatRouter)
 app.use("/api/v1/hostel", HostelRouter)
 app.use("/api/v1/wishlist", WishlistRouter)
 app.use("/api/v1/comment", CommentRouter)
+app.use("/api/v1/file", FileRouter)
 
 
-// connection with db --> connection with cloudinary --> listning on port 
+// >>> starting and connecting with server and db
 async function runServer() {
     try {
         await connectDB(process.env.MONGO_URL)

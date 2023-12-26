@@ -1,16 +1,18 @@
 const express = require("express")
-const Router = express.Router()
-
-const { getWishlist, addWishlist, removeFromWishlist } = require("../controllers/wishlist")
+const router = express.Router()
 
 const AuthMiddlewere = require("../middleweres/auth")
 
-Router.get("/:userId", getWishlist)
-Router.get("/:userId/:propertyId", getWishlist)
+const {
+    addWish,
+    getWishlist,
+    removeWish,
+} = require("../controllers/wishlist")
 
-Router.post("/", addWishlist)
-Router.delete("/:userId/:propertyId", removeFromWishlist)
+router.post("/", addWish)
 
-module.exports = Router
+router.get("/profile/:profileId", getWishlist)
 
-// in phase 2
+router.delete("/profile/:profileId/:type/:hostelOrFlatId", removeWish)
+
+module.exports = router

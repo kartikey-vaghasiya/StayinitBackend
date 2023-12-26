@@ -1,23 +1,17 @@
 const express = require("express")
-const Router = express.Router()
-
-const AuthMiddlewere = require("../middleweres/auth")
+const router = express.Router()
 
 const { getFlat, getAllFlats, addFlat, updateFlat, deleteFlat, addFlatImages } = require("../controllers/flat")
 
-Router.get("/", getAllFlats)
-Router.get("/:id", getFlat)
+router.post("/", addFlat)
 
-Router.post("/", addFlat)
-Router.put("/:id", updateFlat)
-Router.delete("/:id", deleteFlat)
+router.get("/", getAllFlats)
+router.get("/:id", getFlat)
 
-Router.post("/flat-image", addFlatImages)
+router.patch("/:id", updateFlat)
+router.delete("/:id", deleteFlat)
 
+router.post("/flat-image", addFlatImages)
 
+module.exports = router
 
-
-module.exports = Router
-
-
-// Need to imporve flatimage insertion 

@@ -2,18 +2,18 @@ const mongoose = require("mongoose")
 
 
 const WishlistSchema = new mongoose.Schema({
-    user: {
+    profile: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Profile",
         required: true
     },
 
-    flatId: {
+    flat: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Flat",
     },
 
-    hostelId: {
+    hostel: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Hostel",
     },

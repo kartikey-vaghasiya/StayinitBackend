@@ -1,147 +1,163 @@
 const Wishlist = require("../models/Wishlist")
+const Profile = require("../models/Profile")
 
-async function getWishlist(req, res) {
-    // Find all wishlist from db
+async function addWish(req, res) {
+
     try {
 
-        const { userId, propertyId } = req.params
-        const { type } = req.query
+        const { profile, flat, hostel, type } = req.body
 
-        const filterobj = {}
-        if (userId) {
-            filterobj.user = userId
-        }
-        if (propertyId) {
-            if (type) {
-
-                if (type === "flat") {
-                    filterobj.flatId = propertyId
-                } else if (type === "hostel") {
-                    filterobj.hostelId = propertyId
-                }
-            }
-        }
-
-        if (!userId && !flatId && !hostelId && !propertyId) {
-            res.status(400).json({
-                "success": false,
-                "message": "Bad Request ( userId or wishlistId or propertyId ) are required",
-                "data": {}
-            })
-        }
-        const data = await Wishlist.find(filterobj)
-            .populate("user")
-            .populate({
-                path: "flatId",
-                populate: { path: "arrayOfImages" }
-            })
-            .populate({
-                path: "hostelId",
-                populate: { path: "arrayOfImages" }
-            });
-
-        if (data.length > 0) {
-            res.status(200).json({
-                "success": true,
-                "message": "Get Request Successful",
-                "data": data
-            })
-        } else {
-            res.status(404).json({
-                "success": true,
-                "message": "Wishlist is empty",
-                "data": data
-            })
-        }
-
-
-    } catch (e) {
-        res.status(500).json({
-            "success": false,
-            "message": e.message,
-            "data": {}
+        const isWishExist = await Wishlist.findOne({
+            flat: type === "flat" ? flat : undefined,
+            hostel: type === "hostel" ? hostel : undefined,
+            profile
         })
-    }
-}
-
-async function addWishlist(req, res) {
-
-    try {
-        // Get id from body
-        const { flatId, hostelId, user, type } = req.body
-
-        const isWishExist = await Wishlist.findOne({ flatId, hostelId, user: user })
 
         if (isWishExist) {
-            await isWishExist.deleteOne()
+            return res.status(200).json({
+                "success": true,
+                "message": "Wish already exist",
+                "data": isWishExist
+            })
         }
 
-        // create db entry
         const wish = new Wishlist({
-            "flatId": flatId,
-            "hostelId": hostelId,
-            "type": type,
-            "user": user
+            flat: type === "flat" ? flat : undefined,
+            hostel: type === "hostel" ? hostel : undefined,
+            type,
+            profile
         })
 
-        wish.save()
-            .then((createdWish) => {
-                res.status(200).json({
-                    "success": true,
-                    "message": "Wish Added Successfully",
-                    "data": createdWish
-                })
-            })
-            .catch((e) => {
-                res.status(500).json({
-                    "success": true,
-                    "message": e,
-                    "data": {}
-                })
-            })
+        await wish.save()
 
-    } catch (e) {
+        const userProfile = await Profile.findById(profile)
+
+        userProfile.wishlist.push(wish._id)
+        await userProfile.save()
+
+        res.status(200).json({
+            "success": true,
+            "message": "wish added successfully",
+            "data": wish
+        })
+
+    } catch (error) {
         res.status(500).json({
             "success": false,
-            "error": e.message,
-            "data": {}
+            "error": error.message,
         })
     }
 }
 
-async function removeFromWishlist(req, res) {
-    // get id of wish 
-    const { userId, propertyId } = req.params
-    const { type } = req.query
+async function getWishlist(req, res) {
+    try {
 
-    const quertyObj = {}
-    if (userId) {
-        quertyObj.user = userId
-    }
-    if (propertyId) {
-        if (type === "flat") {
-            quertyObj.flatId = propertyId
-        } else if (type === "hostel") {
-            quertyObj.hostelId = propertyId
-        }
-    }
+        const { profileId } = req.params;
 
-    // remove it from db
-    Wishlist.findOneAndDelete(quertyObj)
-        .then((deleted) => {
-            res.status(200).json({
-                "success": true,
-                "message": "Wish Removed Successfully",
-                "data": deleted
-            })
-        })
-        .catch((e) => {
-            res.status(500).json({
+        if (!profileId) {
+            return res.status(500).json({
                 "success": false,
-                "error": e.message,
-                "data": {}
+                "message": "profileId is required",
             })
+        }
+
+        const isProfileExist = await Profile.findById(profileId);
+        if (!isProfileExist) {
+            return res.status(500).json({
+                "success": false,
+                "message": "profile is not exist",
+            })
+        }
+
+        const wishlist = await Wishlist.find({ profile: profileId })
+            .populate({
+                path: "flat",
+                populate: {
+                    path: "arrayOfImages",
+                }
+            })
+            .populate({
+                path: "hostel",
+                populate: {
+                    path: "arrayOfImages",
+                }
+            })
+
+        res.status(200).json({
+            "success": true,
+            "message": "wishlist fetched successfully",
+            "data": wishlist
         })
+
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "error": error.message,
+        })
+    }
 }
 
-module.exports = { getWishlist, addWishlist, removeFromWishlist }
+async function removeWish(req, res) {
+
+    try {
+
+        const { profileId, type, hostelOrFlatId } = req.params;
+
+        if (!profileId || !type || !hostelOrFlatId) {
+            return res.status(500).json({
+                "success": false,
+                "message": "profileId or type or hostelOrFlatId is required",
+            })
+        }
+
+        if (type !== "flat" && type !== "hostel") {
+            return res.status(500).json({
+                "success": false,
+                "message": "type must be flat or hostel",
+            })
+        }
+
+        const isProfileExist = await Profile.findById(profileId);
+        if (!isProfileExist) {
+            return res.status(500).json({
+                "success": false,
+                "message": "profile is not exist",
+            })
+        }
+
+        const wishlist = await Wishlist.findOne({
+            profile: profileId,
+            flat: type === "flat" ? hostelOrFlatId : undefined,
+            hostel: type === "hostel" ? hostelOrFlatId : undefined,
+            type
+        })
+
+        if (!wishlist) {
+            return res.status(500).json({
+                "success": false,
+                "message": "wishlist is not exist",
+            })
+        }
+
+        const userProfile = await Profile.findById(profileId)
+        userProfile.wishlist.pull(wishlist._id)
+        await userProfile.save()
+
+        await wishlist.deleteOne()
+
+        res.status(200).json({
+            "success": true,
+            "message": "wishlist removed successfully",
+            "data": wishlist
+        })
+
+
+    } catch (error) {
+        res.status(500).json({
+            "success": false,
+            "error": error.message,
+        })
+    }
+}
+
+module.exports = { addWish, getWishlist, removeWish }

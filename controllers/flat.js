@@ -3,31 +3,26 @@ const Image = require("../models/Image")
 
 async function getFlat(req, res) {
     try {
-        // Get Id
         const { id } = req.params
 
-        // Get Flat From DB Using ID
         const data = await Flat.findById(id).populate("arrayOfImages")
-        console.log(data)
         try {
             res.status(200).json({
                 "success": true,
-                "message": "Get Request Successful",
+                "message": "flat fetched successfully",
                 "data": data
             })
-        } catch (e) {
+        } catch (error) {
             res.status(404).json({
                 "success": false,
-                "error": e.message,
-                "data": {}
+                "error": error.message,
             })
         }
 
-    } catch (e) {
+    } catch (error) {
         res.status(500).json({
             "success": false,
-            "error": e,
-            "data": {}
+            "error": error.message,
         })
     }
 
@@ -36,12 +31,14 @@ async function getFlat(req, res) {
 async function getAllFlats(req, res) {
     try {
 
-        const { bhk, sqft, furnitureType } = req.query
+        const { bhk, furnitureType } = req.query
 
         const minPrice = req.query.minPrice || 0
         const maxPrice = req.query.maxPrice || Infinity
+
         const minSqft = req.query.minSqft || 0
         const maxSqft = req.query.maxSqft || Infinity
+
         const sortByPrice = req.query.sortByPrice;
         const sortBySqft = req.query.sortBySqft;
 
@@ -55,7 +52,6 @@ async function getAllFlats(req, res) {
             queryObj.furnitureType = furnitureType
         }
 
-        // Get queryed data
         const data = await Flat.find(queryObj)
             .populate("arrayOfImages")
             .sort(
@@ -76,31 +72,28 @@ async function getAllFlats(req, res) {
             .exec()
 
         if (data.length > 0) {
-            res.status(200).json({
+            return res.status(200).json({
                 "success": true,
-                "message": "Successful Get Request",
+                "message": "flat fetched successfully",
                 "data": data
             })
         } else {
-            res.status(404).json({
+            return res.status(404).json({
                 "success": false,
-                "error": "Flats Not Found",
-                "data": data
+                "error": "flat not found",
             })
         }
 
-    } catch (e) {
+    } catch (error) {
         res.status(500).json({
             "success": false,
-            "error": e,
-            "data": {}
+            "error": error.message,
         })
     }
 }
 
 async function addFlat(req, res) {
     try {
-        // Get Flat Data From Request
         const {
             property_name,
             property_price,
@@ -123,7 +116,6 @@ async function addFlat(req, res) {
             contactMail
         } = req.body
 
-        // Create Flat Object
         const flat = new Flat({
             property_name,
             property_price,
@@ -150,128 +142,77 @@ async function addFlat(req, res) {
             .then((Flat_data) => {
                 res.status(201).json({
                     "success": true,
-                    "message": "Flat created successfully",
+                    "message": "flat added successfull",
                     "data": Flat_data
                 })
             })
-            .catch((e) => {
+            .catch((error) => {
                 res.status(500).json({
                     "success": false,
-                    "error": e,
-                    "data": {}
+                    "error": error.message,
                 })
             })
     }
-    catch (e) {
+    catch (error) {
         res.status(500).json({
             "success": false,
-            "error": e,
-            "data": {}
+            "error": error.message,
         })
     }
 }
 
 async function deleteFlat(req, res) {
     try {
-        // Get Id
         const { id } = req.params
 
-        // Get Flat From DB Using ID
         Flat.findByIdAndDelete(id)
             .then((deletedFlat) => {
                 res.status(200).json({
                     "success": true,
-                    "message": "Flat Deleted Successfuly",
+                    "message": "flat deleted successfully",
                     "data": deletedFlat
                 })
             })
-            .catch((e) => {
+            .catch((error) => {
                 res.status(404).json({
                     "success": false,
-                    "error": e,
-                    "data": {}
+                    "error": error.message,
                 })
             })
 
 
-    } catch (e) {
+    } catch (error) {
         res.status(500).json({
             "success": false,
-            "error": e,
-            "data": {}
+            "error": error.message,
         })
     }
 }
 
 async function updateFlat(req, res) {
     try {
-        // Get Id
         const { id } = req.params
-        const {
-            property_name,
-            property_price,
-            property_bhk,
-            property_sqft,
-            property_devloper,
-            property_locality,
-            property_city,
-            atWhichFloor,
-            totalFloor,
-            nearestLandmark,
-            description,
-            num_of_baths,
-            num_of_balconies,
-            furnitureType,
-            locality_url,
-            address,
-            contactNum,
-            contactMail
-        } = req.body
 
-        const updatedFlat = {
-            property_name,
-            property_price,
-            property_bhk,
-            property_sqft,
-            property_devloper,
-            property_locality,
-            property_city,
-            atWhichFloor,
-            totalFloor,
-            nearestLandmark,
-            description,
-            num_of_baths,
-            num_of_balconies,
-            furnitureType,
-            locality_url,
-            address,
-            contactNum,
-            contactMail
-        }
-
-        // Get Flat From DB Using ID
-        Flat.findByIdAndUpdate(id, updatedFlat, { new: true, runValidators: true })
+        Flat.findByIdAndUpdate(id, req.body, { new: true, runValidators: true })
             .then((EditedFlat) => {
                 res.status(200).json({
                     "success": true,
-                    "message": "Flat Updated Successfuly",
+                    "message": "flat updated successfully",
                     "data": EditedFlat
                 })
             })
-            .catch((e) => {
+            .catch((error) => {
                 res.status(404).json({
                     "success": false,
-                    "error": e,
-                    "data": {}
+                    "error": error.message,
                 })
             })
 
 
-    } catch (e) {
+    } catch (error) {
         res.status(500).json({
             "success": false,
-            "error": e,
-            "data": {}
+            "error": error.message,
         })
     }
 }
@@ -291,28 +232,31 @@ async function addFlatImages(req, res) {
             tags,
         })
 
-        // Creating entry in DB
         const createdFlatImage = await flatImages.save()
 
-
-        const reletedFlat = await Flat.findOne({ _id: flatOrHostelId })
-        reletedFlat.arrayOfImages.push(createdFlatImage._id)
-        await reletedFlat.save()
-
-
         if (createdFlatImage) {
+
+
+            const reletedFlat = await Flat.findOne({ _id: flatOrHostelId })
+            reletedFlat.arrayOfImages.push(createdFlatImage._id)
+            await reletedFlat.save()
+
             res.status(201).json({
                 "success": true,
-                "message": "Image Added Successfully",
+                "message": "image added successfull",
                 "data": createdFlatImage
+            })
+        } else {
+            res.status(404).json({
+                "success": false,
+                "message": "image not added",
             })
         }
 
-    } catch (e) {
+    } catch (error) {
         res.status(500).json({
             "success": false,
-            "message": e,
-            "data": {}
+            "message": error.message,
         })
     }
 }

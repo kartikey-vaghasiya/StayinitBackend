@@ -1,23 +1,23 @@
 const express = require("express")
-const Router = express.Router()
+const router = express.Router()
 
 
 const { getHostel, getAllHostels, addHostel, updateHostel, deleteHostel, addPricingAndSharingDetails, addAminitiesDetails, addHostelImages } = require('../controllers/hostel')
 
 const AuthMiddlewere = require("../middleweres/auth")
 
-Router.get("/", getAllHostels)
-Router.get("/:id", getHostel)
+router.post("/", addHostel)
 
-Router.post("/", addHostel)
-Router.put("/:id", updateHostel)
-Router.delete("/:id", deleteHostel)
+router.get("/", getAllHostels)
+router.get("/:id", getHostel)
 
-Router.post("/pricing", addPricingAndSharingDetails)
+router.patch("/:id", updateHostel)
+router.delete("/:id", deleteHostel)
 
-Router.post("/hostel-image", addHostelImages)
+router.post("/pricing", addPricingAndSharingDetails)
+
+router.post("/hostel-image", addHostelImages)
 
 
-module.exports = Router
+module.exports = router
 
-// Need to imporve hostelimage insertion 
